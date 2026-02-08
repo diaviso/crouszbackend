@@ -7,13 +7,14 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
-import { Inject, forwardRef } from '@nestjs/common';
+import { Inject, forwardRef, Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { MessagesService } from './messages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { AiChatService, CROUSZ_AI_BOT_ID, CROUSZ_AI_BOT_NAME } from '../ai/ai-chat.service';
 import { CreateMessageDto } from './dto';
 
 interface AuthenticatedSocket extends Socket {
@@ -30,6 +31,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   @WebSocketServer()
   server: Server;
 
+  private readonly logger = new Logger(MessagesGateway.name);
   private userSockets: Map<string, Set<string>> = new Map();
 
   constructor(
@@ -40,6 +42,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     private notificationsService: NotificationsService,
     @Inject(forwardRef(() => NotificationsGateway))
     private notificationsGateway: NotificationsGateway,
+    private aiChatService: AiChatService,
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -192,6 +195,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
         for (const mentionedId of mentions) {
           if (mentionedId === client.userId) continue;
+          // Skip virtual bot — not a real DB user
+          if (mentionedId === CROUSZ_AI_BOT_ID) continue;
           const notification = await this.notificationsService.create({
             type: 'MESSAGE_MENTION',
             title: 'You were mentioned',
@@ -206,10 +211,75 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
       }
 
+      // Check if CrouszAI bot is mentioned and auto-respond
+      this.handleBotMention(mentions, data.content, data.groupId, client.userId).catch((err) => {
+        this.logger.error('CrouszAI response error:', err);
+      });
+
       return { success: true, message };
     } catch (error: any) {
       return { error: error.message || 'Failed to send message' };
     }
+  }
+
+  /**
+   * Handle CrouszAI bot mention - generate and send AI response
+   * The bot is virtual (no DB user) — we emit a synthetic message object via socket.
+   */
+  private async handleBotMention(
+    mentions: string[],
+    content: string,
+    groupId: string,
+    authorId: string,
+  ): Promise<void> {
+    const isMentioned = this.aiChatService.isBotMentioned(mentions, content);
+    if (!isMentioned) return;
+
+    const author = await this.prisma.user.findUnique({ where: { id: authorId } });
+
+    // Emit typing indicator for the bot
+    this.server.to(`group:${groupId}`).emit('userTyping', {
+      userId: CROUSZ_AI_BOT_ID,
+      isTyping: true,
+    });
+
+    // Generate AI response
+    const responseText = await this.aiChatService.generateResponse(
+      groupId,
+      content,
+      author?.name || 'Utilisateur',
+    );
+
+    // Stop typing
+    this.server.to(`group:${groupId}`).emit('userTyping', {
+      userId: CROUSZ_AI_BOT_ID,
+      isTyping: false,
+    });
+
+    // Build a virtual bot message (not persisted in DB)
+    const botMessage = {
+      id: `bot-${Date.now()}`,
+      content: responseText,
+      groupId,
+      authorId: CROUSZ_AI_BOT_ID,
+      author: {
+        id: CROUSZ_AI_BOT_ID,
+        name: CROUSZ_AI_BOT_NAME,
+        email: 'crouszai@crousz.sn',
+        avatar: null,
+        jobTitle: 'Assistant IA',
+      },
+      mentions: [],
+      reactions: [],
+      attachments: [],
+      replyTo: null,
+      replyToId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Broadcast bot message to group
+    this.server.to(`group:${groupId}`).emit('newMessage', botMessage);
   }
 
   @SubscribeMessage('addReaction')

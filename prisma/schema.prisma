@@ -16,6 +16,17 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Professional profile
+  jobTitle   String?
+  specialty  String?
+  skills     String[] @default([])
+  bio        String?
+  phone      String?
+  linkedin   String?
+
+  // Document header/letterhead (HTML)
+  documentHeader String?
+
   ownedGroups     Group[]          @relation("GroupAdmin")
   memberships     GroupMember[]
   taskAssignments TaskAssignment[]
@@ -27,6 +38,8 @@ model User {
   conversationParticipants ConversationParticipant[]
   messageReactions    MessageReaction[]
   directMessageReactions DirectMessageReaction[]
+  documents       Document[]
+  sharedDocuments DocumentShare[]
 }
 
 model Group {
@@ -244,6 +257,7 @@ enum NotificationType {
   GROUP_INVITE
   GROUP_ROLE_CHANGED
   TASK_STATUS_CHANGED
+  DOCUMENT_SHARED
 }
 
 model Notification {
@@ -272,4 +286,32 @@ model TaskComment {
   task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  shares DocumentShare[]
+
+  @@index([authorId])
+}
+
+model DocumentShare {
+  id        String   @id @default(uuid())
+  canEdit   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
 }

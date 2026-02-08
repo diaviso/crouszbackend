@@ -12,6 +12,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { TaskCommentsModule } from './task-comments/task-comments.module';
 import { MailModule } from './mail/mail.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { AiModule } from './ai/ai.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ConversationsModule } from './conversations/conversations.module';
     TaskCommentsModule,
     MailModule,
     ConversationsModule,
+    AiModule,
+    DocumentsModule,
   ],
 })
 export class AppModule {}

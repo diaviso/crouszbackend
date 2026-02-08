@@ -5,6 +5,7 @@ import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       inject: [ConfigService],
     }),
     NotificationsModule,
+    AiModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService, MessagesGateway],

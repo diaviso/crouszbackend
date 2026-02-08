@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import { User, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface GoogleUserData {
@@ -34,13 +34,25 @@ export class AuthService {
         },
       });
     } else {
+      // Only update email (always keep in sync with Google).
+      // Preserve name and avatar if the user has customized them.
+      const updateData: Prisma.UserUpdateInput = { email };
+
+      // Only update name from Google if user hasn't changed it
+      // (i.e. name is still null/empty)
+      if (!user.name || user.name.trim().length === 0) {
+        updateData.name = name;
+      }
+
+      // Only update avatar from Google if user hasn't uploaded a custom one
+      // Custom avatars are stored locally (contain '/uploads/avatars/')
+      if (!user.avatar || !user.avatar.includes('/uploads/avatars/')) {
+        updateData.avatar = avatar;
+      }
+
       user = await this.prisma.user.update({
         where: { id: user.id },
-        data: {
-          email,
-          name,
-          avatar,
-        },
+        data: updateData,
       });
     }
 

@@ -63,6 +63,42 @@ export class UsersService {
     });
   }
 
+  getProfileCompleteness(user: User): { percentage: number; missingFields: string[] } {
+    const fields = [
+      { key: 'name', label: 'name', weight: 15 },
+      { key: 'avatar', label: 'avatar', weight: 5 },
+      { key: 'jobTitle', label: 'jobTitle', weight: 25 },
+      { key: 'specialty', label: 'specialty', weight: 25 },
+      { key: 'skills', label: 'skills', weight: 20 },
+      { key: 'bio', label: 'bio', weight: 5 },
+      { key: 'phone', label: 'phone', weight: 2.5 },
+      { key: 'linkedin', label: 'linkedin', weight: 2.5 },
+    ];
+
+    let totalWeight = 0;
+    const missingFields: string[] = [];
+
+    for (const field of fields) {
+      const value = (user as any)[field.key];
+      if (field.key === 'skills') {
+        if (Array.isArray(value) && value.length > 0) {
+          totalWeight += field.weight;
+        } else {
+          missingFields.push(field.label);
+        }
+      } else if (value && String(value).trim().length > 0) {
+        totalWeight += field.weight;
+      } else {
+        missingFields.push(field.label);
+      }
+    }
+
+    return {
+      percentage: Math.round(totalWeight),
+      missingFields,
+    };
+  }
+
   async searchByEmail(query: string): Promise<User[]> {
     return this.prisma.user.findMany({
       where: {
