@@ -23,11 +23,35 @@ let AiChatService = AiChatService_1 = class AiChatService {
         this.configService = configService;
         this.prisma = prisma;
         this.logger = new common_1.Logger(AiChatService_1.name);
+        this.botUserId = '';
         this.llm = new openai_1.ChatOpenAI({
             openAIApiKey: this.configService.get('OPENAI_API_KEY'),
             modelName: this.configService.get('OPENAI_MODEL') || 'gpt-4.1',
             temperature: 0.7,
         });
+    }
+    async onModuleInit() {
+        try {
+            const botUser = await this.prisma.user.upsert({
+                where: { email: 'crouszai@crousz.sn' },
+                update: {},
+                create: {
+                    email: 'crouszai@crousz.sn',
+                    name: exports.CROUSZ_AI_BOT_NAME,
+                    googleId: 'crouszai-bot-internal',
+                    jobTitle: 'Assistant IA',
+                    avatar: null,
+                },
+            });
+            this.botUserId = botUser.id;
+            this.logger.log(`CrouszAI bot user initialized: ${this.botUserId}`);
+        }
+        catch (error) {
+            this.logger.error('Failed to initialize bot user', error);
+        }
+    }
+    getBotUserId() {
+        return this.botUserId;
     }
     isBotMentioned(mentions, content) {
         if (mentions.includes(exports.CROUSZ_AI_BOT_ID))

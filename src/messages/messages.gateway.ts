@@ -256,30 +256,49 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       isTyping: false,
     });
 
-    // Build a virtual bot message (not persisted in DB)
-    const botMessage = {
-      id: `bot-${Date.now()}`,
-      content: responseText,
-      groupId,
-      authorId: CROUSZ_AI_BOT_ID,
-      author: {
-        id: CROUSZ_AI_BOT_ID,
-        name: CROUSZ_AI_BOT_NAME,
-        email: 'crouszai@crousz.sn',
-        avatar: null,
-        jobTitle: 'Assistant IA',
-      },
-      mentions: [],
-      reactions: [],
-      attachments: [],
-      replyTo: null,
-      replyToId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Broadcast bot message to group
-    this.server.to(`group:${groupId}`).emit('newMessage', botMessage);
+    // Persist bot message in DB using the real bot user ID
+    const botDbUserId = this.aiChatService.getBotUserId();
+    if (botDbUserId) {
+      const savedMessage = await this.prisma.message.create({
+        data: {
+          content: responseText,
+          groupId,
+          authorId: botDbUserId,
+          mentions: [],
+        },
+        include: {
+          author: true,
+          group: true,
+          replyTo: { include: { author: true } },
+          attachments: true,
+          reactions: { include: { user: true } },
+        },
+      });
+      this.server.to(`group:${groupId}`).emit('newMessage', savedMessage);
+    } else {
+      // Fallback: emit virtual message if bot user not initialized
+      const botMessage = {
+        id: `bot-${Date.now()}`,
+        content: responseText,
+        groupId,
+        authorId: CROUSZ_AI_BOT_ID,
+        author: {
+          id: CROUSZ_AI_BOT_ID,
+          name: CROUSZ_AI_BOT_NAME,
+          email: 'crouszai@crousz.sn',
+          avatar: null,
+          jobTitle: 'Assistant IA',
+        },
+        mentions: [],
+        reactions: [],
+        attachments: [],
+        replyTo: null,
+        replyToId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      this.server.to(`group:${groupId}`).emit('newMessage', botMessage);
+    }
   }
 
   @SubscribeMessage('addReaction')

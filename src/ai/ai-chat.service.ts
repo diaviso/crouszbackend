@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages';
@@ -8,9 +8,10 @@ export const CROUSZ_AI_BOT_ID = 'crouszai-bot';
 export const CROUSZ_AI_BOT_NAME = 'CrouszAI';
 
 @Injectable()
-export class AiChatService {
+export class AiChatService implements OnModuleInit {
   private readonly logger = new Logger(AiChatService.name);
   private llm: ChatOpenAI;
+  private botUserId: string = '';
 
   constructor(
     private configService: ConfigService,
@@ -21,6 +22,30 @@ export class AiChatService {
       modelName: this.configService.get<string>('OPENAI_MODEL') || 'gpt-4.1',
       temperature: 0.7,
     });
+  }
+
+  async onModuleInit() {
+    try {
+      const botUser = await this.prisma.user.upsert({
+        where: { email: 'crouszai@crousz.sn' },
+        update: {},
+        create: {
+          email: 'crouszai@crousz.sn',
+          name: CROUSZ_AI_BOT_NAME,
+          googleId: 'crouszai-bot-internal',
+          jobTitle: 'Assistant IA',
+          avatar: null,
+        },
+      });
+      this.botUserId = botUser.id;
+      this.logger.log(`CrouszAI bot user initialized: ${this.botUserId}`);
+    } catch (error) {
+      this.logger.error('Failed to initialize bot user', error);
+    }
+  }
+
+  getBotUserId(): string {
+    return this.botUserId;
   }
 
   /**

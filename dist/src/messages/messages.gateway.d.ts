@@ -43,14 +43,14 @@ export declare class MessagesGateway implements OnGatewayConnection, OnGatewayDi
         success: boolean;
         message: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            groupId: string;
             content: string;
             mentions: string[];
+            createdAt: Date;
+            updatedAt: Date;
             isEdited: boolean;
-            replyToId: string | null;
+            groupId: string;
             authorId: string;
+            replyToId: string | null;
         };
         error?: undefined;
     } | {
@@ -68,9 +68,9 @@ export declare class MessagesGateway implements OnGatewayConnection, OnGatewayDi
         reaction: {
             id: string;
             createdAt: Date;
-            userId: string;
             emoji: string;
             messageId: string;
+            userId: string;
         };
         error?: undefined;
     } | {
@@ -109,14 +109,14 @@ export declare class MessagesGateway implements OnGatewayConnection, OnGatewayDi
         success: boolean;
         message: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            groupId: string;
             content: string;
             mentions: string[];
+            createdAt: Date;
+            updatedAt: Date;
             isEdited: boolean;
-            replyToId: string | null;
+            groupId: string;
             authorId: string;
+            replyToId: string | null;
         };
         error?: undefined;
     } | {
